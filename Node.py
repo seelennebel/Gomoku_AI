@@ -1,3 +1,5 @@
+import math
+
 class Node:
 
     def __init__(self, state, parent, children, prior_probability, parent_node_simulations, node_simulations):
@@ -7,6 +9,8 @@ class Node:
         self.prior_probability = prior_probability
         self.parent_node_simulations = parent_node_simulations
         self.node_simulations = node_simulations
+
+        self.expanded = False
 
     def set_state(self, new_state):
         self.state = new_state
@@ -22,3 +26,6 @@ class Node:
     
     def expand(self):
         return self.children
+
+    def calculate_UCB(self):
+        return self.prior_probability * math.sqrt(math.log(self.parent_node_simulations) / self.node_simulations) 
