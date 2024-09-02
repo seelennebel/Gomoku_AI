@@ -39,7 +39,7 @@ class Node:
 
 class GomokuAgent:
     def __init__(self, agent_symbol, blank_symbol, opponent_symbol):
-        self.name = "Boss Mastercomputer Gomoku Killer CHAT-GPT Executioner 100000LVL"
+        self.name = "Boss Mastercomputer Gomoku Killer 100000LVL"
         self.agent_symbol = agent_symbol
         self.blank_symbol = blank_symbol
         self.opponent_symbol = opponent_symbol
