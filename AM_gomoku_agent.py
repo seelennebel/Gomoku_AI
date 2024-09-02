@@ -1,85 +1,111 @@
 import numpy as np
+import math
 
 def generate_initial_state(first_turn):
-
     board = np.zeros((15, 15))
-
     if first_turn:
         return board
     else:
         x = np.random.randint(0, 15, dtype=int)
-        y = np.random.randint(0, 15, dtype=int) 
+        y = np.random.randint(0, 15, dtype=int)
         board[x, y] = -1
         return board
 
 class Node:
-
-    def __init__(self, state):
+    def __init__(self, state, move=None, parent=None):
         self.state = state
-        self.expanded = False
-        self.nodes_to_expand = []
+        self.move = move
+        self.parent = parent
         self.children = []
+        self.value = 0
+        self.node_visits = 0
+        self.expanded = False
 
-    def possible_moves(self):
-        return self.generate_possible_moves()
+    def add_child(self, node):
+        self.children.append(node)
 
-    def calculate_UCB(self):
-        return self.prior_probability * math.sqrt(math.log(self.parent_node_simulations) / self.node_simulations) 
+    def calculate_UCB(self, total_visits, exploration_param=math.sqrt(2)):
+        if self.node_visits == 0:
+            return float('inf')  # Prioritize unvisited nodes
+        return (self.value / self.node_visits) + exploration_param * math.sqrt(math.log(total_visits) / self.node_visits)
 
     def generate_possible_moves(self):
-        possible_expansions = [] 
+        possible_expansions = []
         for row in range(15):
             for index in range(15):
                 if self.state[row, index] == 0:
-                    possible_expansions.append((row, index)) 
+                    possible_expansions.append((row, index))
         return possible_expansions
 
-    def __str__(self):
-        return "Node: {}".format(self.state)
-
 class GomokuAgent:
-
     def __init__(self, agent_symbol, blank_symbol, opponent_symbol):
+        self.name = "Boss Mastercomputer Gomoku Killer CHAT-GPT Executioner 100000LVL"
         self.agent_symbol = agent_symbol
         self.blank_symbol = blank_symbol
         self.opponent_symbol = opponent_symbol
 
     def play(self, board):
+        best_move = self.run(board)
+        return best_move
+
+    def run(self, board):
+        MAX_ITERATIONS = 1000
         root_node = Node(board)
-        current_node = root_node
-        if not current_node.expanded:
-
-            for move in current_node.possible_moves():
-                self.expand_agent_node(current_node, move, board.copy())
-
-            for node in current_node.nodes_to_expand:
-                current_node.children.insert(-1, node)
-                self.simulate(node, agent_turn=False)
-
-    def expand_agent_node(self, node, move, board):
-        board[move[0], move[1]] = self.agent_symbol
-        new_node = Node(board)
-        node.nodes_to_expand.insert(-1, new_node)
-
-    def backpropagate(self)
+        for _ in range(MAX_ITERATIONS):
+            selected_node = self.select(root_node)
+            reward = self.simulate(selected_node)
+            self.backpropagate(selected_node, reward)
         
-    def simulate(self, node, agent_turn = False):
+        best_child = max(root_node.children, key=lambda node: node.node_visits)
+        return best_child.move
 
-        if not agent_turn:
+    def select(self, node):
+        while node.expanded and node.children:
+            total_visits = sum(child.node_visits for child in node.children)
+            node = max(node.children, key=lambda child: child.calculate_UCB(total_visits))
+        if not node.expanded:
+            self.expand(node)
+        return node
 
-            possible_moves = node.generate_possible_moves()
+    def expand(self, node):
+        possible_moves = node.generate_possible_moves()
+        for move in possible_moves:
+            new_board = node.state.copy()
+            new_board[move[0], move[1]] = self.agent_symbol
+            child_node = Node(new_board, move, node)
+            node.add_child(child_node)
+        node.expanded = True
 
-            for move in possible_moves:
+    def simulate(self, node, agent_turn=False):
+        current_state = node.state.copy()
+        possible_moves = node.generate_possible_moves()
+        move_count = 0
 
-                random_move_index = np.random.randint(0,len(possible_moves))
-                node.state[move[0], move[1]] = self.opponent_symbol
+        turn = self.opponent_symbol if agent_turn else self.agent_symbol
 
-                if self.is_winner(node.state, move):
-                    self.backpropagate()
+        while move_count < len(possible_moves):
+            random_move_index = np.random.randint(0, len(possible_moves))
+            move = possible_moves.pop(random_move_index)
+            current_state[move[0], move[1]] = turn
+            turn = self.agent_symbol if turn == self.opponent_symbol else self.opponent_symbol
+            move_count += 1
 
+            result = GomokuAgent.is_winner(current_state, move)
+            if result:
+                return result
+        return 0  # Draw
+
+    def backpropagate(self, node, reward):
+        while node is not None:
+            node.node_visits += 1
+            node.value += reward
+            node = node.parent
+
+    @staticmethod
     def is_winner(board, move):
         i, j = move
         player = board[i, j]
+        WIN_LINE_LENGTH = 5
 
         def check(values):
             counter = 0
@@ -97,12 +123,4 @@ class GomokuAgent:
         c3 = check(board.diagonal(j-i))
         c4 = check(np.fliplr(board).diagonal(board.shape[0]-i-j-1))
         
-        if c1 or c2 or c3 or c4:
-            return player
-        
-        return False
-
-initial_state = generate_initial_state(first_turn=False)
-
-net = GomokuAgent(1, 0, -1)
-net.play(initial_state)
+        return player if c1 or c2 or c3 or c4 else False
